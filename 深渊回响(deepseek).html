@@ -1,0 +1,1959 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>深渊回响 · Echoes of the Abyss</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body {
+    width:100%; height:100%; overflow:hidden;
+    background:#05060a;
+    font-family: "Consolas","Monaco","Courier New","Microsoft YaHei",monospace;
+    color:#b9c6dc; user-select:none; -webkit-font-smoothing:antialiased;
+  }
+  body::before {
+    content:''; position:fixed; inset:0; pointer-events:none;
+    background:
+      radial-gradient(ellipse at 50% 40%, rgba(40,70,140,0.10), transparent 60%),
+      radial-gradient(ellipse at 80% 90%, rgba(120,40,140,0.06), transparent 60%);
+  }
+  #wrap { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+  #frame { width:1420px; height:720px; display:flex; gap:16px; transform-origin:center center; }
+  #stage { position:relative; width:1104px; height:720px; flex:0 0 auto; }
+  canvas {
+    display:block; border-radius:8px;
+    box-shadow: 0 0 0 1px rgba(110,150,220,0.18), 0 0 40px rgba(50,90,200,0.12), 0 20px 60px rgba(0,0,0,0.7);
+  }
+  #overlay {
+    position:absolute; inset:0; display:none;
+    flex-direction:column; align-items:center; justify-content:center;
+    background: radial-gradient(ellipse at center, rgba(8,12,24,0.85), rgba(2,3,6,0.97));
+    border-radius:8px; text-align:center;
+    overflow-y:auto; padding:36px 24px;
+    backdrop-filter: blur(2px);
+    scrollbar-width: thin; scrollbar-color: rgba(90,130,200,0.4) transparent;
+  }
+  #overlay::-webkit-scrollbar { width:6px; }
+  #overlay::-webkit-scrollbar-thumb { background:rgba(90,130,200,0.35); border-radius:3px; }
+
+  .title {
+    font-size:56px; letter-spacing:14px; font-weight:bold; color:#dce9ff;
+    text-shadow: 0 0 24px rgba(90,150,255,0.85), 0 0 60px rgba(60,110,220,0.5);
+    margin-bottom:6px;
+  }
+  .subtitle { font-size:13px; letter-spacing:8px; color:#5a7bb0; margin-bottom:30px; }
+  .keys { font-size:13px; line-height:1.95; color:#7f92b4; margin-bottom:30px; }
+  .keys b { color:#a9d4ff; font-weight:normal; }
+  .prompt {
+    font-size:16px; color:#8fd0ff; letter-spacing:4px;
+    animation: blink 1.4s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+  .dead-title {
+    font-size:48px; letter-spacing:10px; color:#ff5a6e;
+    text-shadow:0 0 30px rgba(255,60,90,0.8); margin-bottom:14px;
+  }
+  .win-title {
+    font-size:48px; letter-spacing:10px; color:#ffd76a;
+    text-shadow:0 0 34px rgba(255,200,80,0.8); margin-bottom:14px;
+  }
+  .dead-stats { font-size:15px; line-height:2.0; color:#98a8c4; margin-bottom:22px; }
+  .dead-stats b { color:#ffd76a; font-weight:normal; }
+  .souls-gained {
+    font-size:22px; color:#bb88ff; margin:12px 0 18px;
+    text-shadow:0 0 20px rgba(180,120,255,0.7);
+  }
+  .souls-gained b { color:#ddbbff; }
+
+  /* === 枢纽 === */
+  .hub-souls { margin-bottom:8px; display:flex; align-items:baseline; gap:12px; }
+  .soul-icon { font-size:26px; color:#bb88ff; text-shadow:0 0 20px rgba(180,120,255,0.9); }
+  .soul-num { font-size:38px; color:#ddbbff; font-weight:bold; letter-spacing:2px; }
+  .soul-label { font-size:13px; color:#6a5a8a; letter-spacing:5px; }
+  .hub-stats { font-size:12px; color:#5d6e8c; margin-bottom:22px; letter-spacing:1px; }
+
+  .shop-grid {
+    display:grid; grid-template-columns: repeat(4, 1fr);
+    gap:10px; width:100%; max-width:920px; margin-bottom:24px;
+  }
+  .shop-item {
+    background: linear-gradient(180deg, rgba(22,28,48,0.85), rgba(12,16,28,0.9));
+    border:1px solid rgba(90,130,200,0.18); border-radius:7px;
+    padding:11px 12px; text-align:left;
+  }
+  .shop-item.maxed { opacity:0.55; border-color:rgba(255,215,106,0.3); }
+  .si-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px; }
+  .si-name { font-size:14px; color:#d6e4ff; }
+  .si-lvl { font-size:11px; color:#5d7ba8; }
+  .si-desc { font-size:11.5px; color:#7f92b4; margin-bottom:9px; }
+  .si-buy {
+    width:100%; padding:6px 0; cursor:pointer;
+    background: rgba(60,100,180,0.22); color:#a9d4ff;
+    border:1px solid rgba(90,150,240,0.35); border-radius:5px;
+    font-family:inherit; font-size:12px; letter-spacing:1px;
+    transition: all 0.15s;
+  }
+  .si-buy:hover:not(:disabled) { background:rgba(80,130,220,0.4); color:#fff; }
+  .si-buy:disabled { opacity:0.32; cursor:not-allowed; }
+
+  .btn-main {
+    padding:13px 52px; cursor:pointer; margin-top:6px;
+    background: linear-gradient(180deg, rgba(60,110,200,0.45), rgba(30,60,130,0.5));
+    color:#dce9ff; border:1px solid rgba(120,180,255,0.5);
+    border-radius:7px; font-family:inherit; font-size:17px; letter-spacing:6px;
+    text-shadow:0 0 14px rgba(120,180,255,0.6);
+    transition: all 0.18s;
+  }
+  .btn-main:hover {
+    background: linear-gradient(180deg, rgba(80,140,240,0.65), rgba(45,85,170,0.7));
+    box-shadow:0 0 30px rgba(80,150,255,0.45);
+  }
+  .btn-back {
+    padding:8px 26px; cursor:pointer; margin-top:16px;
+    background:transparent; color:#7f92b4;
+    border:1px solid rgba(90,130,200,0.28); border-radius:6px;
+    font-family:inherit; font-size:13px; letter-spacing:3px;
+    transition: all 0.15s;
+  }
+  .btn-back:hover { color:#dce9ff; border-color:rgba(120,180,255,0.6); }
+
+  /* === 职业 === */
+  .class-grid {
+    display:grid; grid-template-columns: repeat(3, 1fr);
+    gap:16px; width:100%; max-width:820px; margin-bottom:10px;
+  }
+  .class-card {
+    background: linear-gradient(180deg, rgba(24,30,52,0.9), rgba(12,16,28,0.95));
+    border:1px solid rgba(90,130,200,0.25); border-radius:9px;
+    padding:20px 18px; cursor:pointer; text-align:left;
+    transition: all 0.18s;
+  }
+  .class-card:hover { border-color:rgba(140,190,255,0.65); transform: translateY(-3px); box-shadow:0 8px 26px rgba(60,110,220,0.25); }
+  .class-card.locked { opacity:0.55; }
+  .class-card.locked:hover { opacity:0.85; }
+  .cc-name { font-size:22px; letter-spacing:4px; color:#e4eeff; margin-bottom:8px; }
+  .cc-desc { font-size:12px; color:#8899b8; line-height:1.6; margin-bottom:14px; min-height:38px; }
+  .cc-stats { display:flex; gap:12px; font-size:12px; color:#a9c4ee; margin-bottom:12px; flex-wrap:wrap; }
+  .cc-skill {
+    font-size:11.5px; color:#8fd0ff; padding-top:11px;
+    border-top:1px solid rgba(90,130,200,0.16); line-height:1.6;
+  }
+  .cc-lock { font-size:12px; color:#ffb055; margin-top:11px; }
+
+  /* === 侧栏 === */
+  #side { width:300px; display:flex; flex-direction:column; gap:12px; }
+  .panel {
+    background: linear-gradient(180deg, rgba(18,24,40,0.92), rgba(10,14,24,0.92));
+    border:1px solid rgba(90,130,200,0.20); border-radius:8px;
+    padding:11px 13px;
+    box-shadow: inset 0 1px 0 rgba(120,170,255,0.07), 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .panel h3 {
+    font-size:11px; letter-spacing:4px; color:#5d7ba8; font-weight:normal;
+    margin-bottom:8px; border-bottom:1px solid rgba(90,130,200,0.15); padding-bottom:5px;
+  }
+  .srow { display:flex; justify-content:space-between; align-items:baseline; font-size:13px; padding:2px 0; color:#8fa2c0; }
+  .srow b { color:#d6e4ff; font-weight:normal; font-size:13.5px; }
+  .srow .gold { color:#ffd76a; }
+  .srow .lvl { color:#8fe0ff; }
+  .srow .soulc { color:#bb88ff; }
+  .hpwrap {
+    height:9px; border-radius:5px; background:rgba(255,60,90,0.10);
+    border:1px solid rgba(255,80,110,0.22); margin:6px 0 4px; overflow:hidden;
+  }
+  .hpbar {
+    height:100%; border-radius:4px;
+    background:linear-gradient(90deg,#ff3355,#ff7755);
+    box-shadow:0 0 10px rgba(255,70,90,0.7);
+    transition: width 0.18s ease-out;
+  }
+  .xpwrap {
+    height:5px; border-radius:3px; background:rgba(120,200,255,0.08);
+    border:1px solid rgba(120,200,255,0.16); margin-bottom:7px; overflow:hidden;
+  }
+  .xpbar {
+    height:100%; background:linear-gradient(90deg,#3aa0ff,#7ce0ff);
+    box-shadow:0 0 8px rgba(90,190,255,0.7);
+    transition: width 0.18s ease-out;
+  }
+  .skillrow {
+    display:flex; justify-content:space-between; align-items:center;
+    font-size:12px; padding:4px 0; color:#8fa2c0;
+  }
+  .skillrow .sk { color:#8fd0ff; }
+  .skillrow .cd { color:#ff8866; }
+
+  .islot { display:flex; align-items:center; gap:8px; font-size:12.5px; padding:3px 0; color:#93a6c4; }
+  .islot .num {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:19px; height:19px; flex:0 0 auto;
+    border:1px solid rgba(120,160,220,0.30); border-radius:4px;
+    font-size:11px; color:#7f9dd0; background:rgba(40,60,100,0.35);
+  }
+  .islot .nm { flex:1; }
+  .islot .ct { color:#ffd76a; }
+  .islot.empty { opacity:0.22; }
+
+  .relicrow { display:flex; flex-wrap:wrap; gap:5px; }
+  .relic {
+    font-size:11px; padding:3px 8px; border-radius:4px;
+    background:rgba(40,60,110,0.4); border:1px solid rgba(120,160,240,0.28);
+  }
+
+  #log { flex:1 1 auto; overflow:hidden; display:flex; flex-direction:column; }
+  #loglist {
+    flex:1; overflow-y:auto; font-size:12.5px; line-height:1.6;
+    padding-right:4px; scrollbar-width: thin; scrollbar-color: rgba(90,130,200,0.4) transparent;
+  }
+  #loglist::-webkit-scrollbar { width:5px; }
+  #loglist::-webkit-scrollbar-thumb { background:rgba(90,130,200,0.35); border-radius:3px; }
+  #loglist div { margin-bottom:1px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="frame">
+    <div id="stage">
+      <canvas id="cv"></canvas>
+      <div id="overlay"></div>
+    </div>
+    <div id="side">
+      <div class="panel" id="stats"></div>
+      <div class="panel" id="inv"></div>
+      <div class="panel" id="log">
+        <h3>日志</h3>
+        <div id="loglist"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ═══════════════════════════════════════════════════════════
+   配置
+   ═══════════════════════════════════════════════════════════ */
+const MAP_W = 46, MAP_H = 30, TS = 24;
+const VW = MAP_W * TS, VH = MAP_H * TS;
+const DPR = Math.min(2, window.devicePixelRatio || 1);
+const WALL = 0, FLOOR = 1;
+const FOV_RADIUS = 8.5;
+const MAX_DEPTH = 15;
+const BOSS_FLOORS = { 5:'warlord', 10:'prince', 15:'abyss' };
+
+/* ═══════════════════════════════════════════════════════════
+   工具
+   ═══════════════════════════════════════════════════════════ */
+const rnd = n => Math.floor(Math.random() * n);
+const rndR = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+
+function hash2(x, y) {
+  let h = (x * 374761393 + y * 668265263) | 0;
+  h = (h ^ (h >> 13)) * 1274126177 | 0;
+  return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+}
+function parseHex(h) {
+  h = h.replace('#','');
+  if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+function rgba(h, a) { const [r,g,b] = parseHex(h); return `rgba(${r},${g},${b},${a})`; }
+function lighten(h, t) {
+  const [r,g,b] = parseHex(h);
+  return `rgb(${(r+(255-r)*t)|0},${(g+(255-g)*t)|0},${(b+(255-b)*t)|0})`;
+}
+function darken(h, t) {
+  const [r,g,b] = parseHex(h);
+  return `rgb(${(r*(1-t))|0},${(g*(1-t))|0},${(b*(1-t))|0})`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   安全存储
+   ═══════════════════════════════════════════════════════════ */
+const memStore = {};
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch(e) { return memStore[k] || null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch(e) { memStore[k] = v; } }
+};
+
+const SAVE_KEY = 'echoes_abyss_meta_v3';
+function defaultMeta() {
+  return {
+    souls: 0, totalRuns: 0, bestDepth: 0, kills: 0, wins: 0,
+    upgrades: { hp:0, atk:0, def:0, potions:0, souls:0, crit:0, luck:0, speed:0 },
+    unlockedClasses: ['warrior'],
+    seenRelics: [],
+  };
+}
+let meta = defaultMeta();
+(function load() {
+  const s = store.get(SAVE_KEY);
+  if (s) {
+    try {
+      const parsed = JSON.parse(s);
+      meta = Object.assign(defaultMeta(), parsed);
+      meta.upgrades = Object.assign(defaultMeta().upgrades, parsed.upgrades || {});
+      meta.unlockedClasses = parsed.unlockedClasses || ['warrior'];
+    } catch(e) {}
+  }
+})();
+function saveMeta() { store.set(SAVE_KEY, JSON.stringify(meta)); }
+
+/* ═══════════════════════════════════════════════════════════
+   游戏数据
+   ═══════════════════════════════════════════════════════════ */
+const CLASSES = {
+  warrior: {
+    name:'战 士', desc:'坚韧的近战斗士。生命与防御出众，适合正面硬撼。',
+    hp:46, atk:8, def:4, speed:100, crit:0.08, color:'#ff8855',
+    skill:'whirlwind', skillName:'旋风斩', skillCd:8,
+    skillDesc:'对相邻所有敌人造成 1.6 倍伤害',
+    unlockCost:0,
+  },
+  ranger: {
+    name:'游 侠', desc:'迅捷而精准。移动极快，暴击率极高，擅长游走。',
+    hp:30, atk:10, def:2, speed:140, crit:0.24, color:'#66dd88',
+    skill:'dash', skillName:'疾风步', skillCd:6,
+    skillDesc:'朝最近敌人冲刺 2 格并攻击，机动性极强',
+    unlockCost:300,
+  },
+  mage: {
+    name:'法 师', desc:'脆弱却拥有毁灭性的奥术之力。技能爆发极高。',
+    hp:24, atk:6, def:1, speed:100, crit:0.10, color:'#aa88ff',
+    skill:'arcane', skillName:'奥术冲击', skillCd:5,
+    skillDesc:'对视野内最近的敌人造成巨额奥术伤害',
+    unlockCost:700,
+  },
+};
+
+const UPGRADES = {
+  hp:      { name:'活力',     desc:'最大生命 +3',   base:40,  growth:1.62, max:12 },
+  atk:     { name:'力量',     desc:'攻击 +1',       base:70,  growth:1.68, max:12 },
+  def:     { name:'护甲',     desc:'防御 +1',       base:90,  growth:1.72, max:10 },
+  potions: { name:'补给',     desc:'起始药水 +1',   base:55,  growth:1.78, max:6  },
+  souls:   { name:'灵魂亲和', desc:'灵魂获取 +12%', base:100, growth:1.70, max:10 },
+  crit:    { name:'致命',     desc:'暴击率 +3%',    base:130, growth:1.85, max:8  },
+  luck:    { name:'幸运',     desc:'物品掉落 +6%',  base:90,  growth:1.72, max:8  },
+  speed:   { name:'迅捷',     desc:'速度 +5',       base:110, growth:1.75, max:6  },
+};
+function upgradeCost(key, lvl) {
+  const u = UPGRADES[key];
+  return Math.floor(u.base * Math.pow(u.growth, lvl));
+}
+
+const RELICS = {
+  vampire: { name:'吸血鬼之牙', desc:'造成伤害的 20% 回复生命', color:'#cc3355' },
+  thorns:  { name:'荆棘护甲',   desc:'反弹 40% 受到的伤害',      color:'#88aa44' },
+  swift:   { name:'迅捷之靴',   desc:'速度 +30',                 color:'#66ccff' },
+  compass: { name:'寻宝罗盘',   desc:'物品掉落率 +40%',          color:'#ffcc44' },
+  siphon:  { name:'灵魂虹吸',   desc:'灵魂获取 +60%',            color:'#bb66ff' },
+  eye:     { name:'暴击之眼',   desc:'暴击率 +18%',              color:'#ff4488' },
+  pendant: { name:'守护吊坠',   desc:'最大生命 +14',             color:'#44ddaa' },
+  greed:   { name:'贪婪之戒',   desc:'每次击杀额外 +4 灵魂',     color:'#ffaa22' },
+  regen:   { name:'再生护符',   desc:'每 8 回合恢复 3 生命',     color:'#66ff88' },
+  shield:  { name:'奥术护盾',   desc:'受到伤害减少 25%',         color:'#6688ff' },
+  frenzy:  { name:'狂战士之血', desc:'生命低于 40% 时攻击 +50%',  color:'#ff5533' },
+  hunter:  { name:'猎手印记',   desc:'击杀后下回合攻击 +100%',   color:'#ddaa33' },
+};
+const RELIC_KEYS = Object.keys(RELICS);
+
+const MONSTER_TYPES = {
+  rat:      { name:'巨鼠',     hp:8,   atk:3,  def:0,  speed:120, xp:6,   souls:3,   color:'#9b7a63', size:0.28, shape:'rat' },
+  goblin:   { name:'哥布林',   hp:13,  atk:5,  def:1,  speed:100, xp:10,  souls:5,   color:'#5fb04a', size:0.34, shape:'ear' },
+  skeleton: { name:'骷髅兵',   hp:19,  atk:8,  def:2,  speed:100, xp:16,  souls:8,   color:'#cfcfc0', size:0.35, shape:'skull' },
+  orc:      { name:'兽人',     hp:30,  atk:11, def:3,  speed:100, xp:26,  souls:14,  color:'#3f7a3f', size:0.40, shape:'ear' },
+  wraith:   { name:'幽魂',     hp:24,  atk:14, def:2,  speed:140, xp:36,  souls:20,  color:'#6fa8ff', size:0.36, shape:'ghost', phase:true },
+  troll:    { name:'巨魔',     hp:50,  atk:17, def:5,  speed:90,  xp:55,  souls:32,  color:'#8a6a4a', size:0.44, shape:'horn', regen:1 },
+  demon:    { name:'恶魔',     hp:66,  atk:23, def:6,  speed:110, xp:85,  souls:50,  color:'#e0503a', size:0.44, shape:'horn' },
+  lich:     { name:'巫妖',     hp:54,  atk:20, def:4,  speed:95,  xp:95,  souls:60,  color:'#88ffaa', size:0.42, shape:'skull', caster:true },
+  gargoyle: { name:'石像鬼',   hp:90,  atk:22, def:13, speed:80,  xp:110, souls:70,  color:'#8899aa', size:0.46, shape:'horn' },
+  // BOSS
+  warlord:  { name:'兽人督军', hp:170, atk:20, def:9,  speed:110, xp:250, souls:180, color:'#cc6633', size:0.56, shape:'horn', boss:true },
+  prince:   { name:'恶魔王子', hp:380, atk:31, def:14, speed:115, xp:600, souls:420, color:'#cc2244', size:0.60, shape:'horn', boss:true },
+  abyss:    { name:'深渊之主', hp:820, atk:46, def:19, speed:120, xp:1400, souls:1000, color:'#ff2f5f', size:0.68, shape:'horn', boss:true },
+};
+
+const ITEMS = {
+  potion:   { name:'治疗药水', color:'#ff5577', desc:'恢复 30 生命' },
+  strength: { name:'力量药剂', color:'#ff8833', desc:'永久 +2 攻击' },
+  armor:    { name:'铁甲片',   color:'#8899bb', desc:'永久 +1 防御' },
+  teleport: { name:'传送卷轴', color:'#aa77ff', desc:'随机传送' },
+  fireball: { name:'火球卷轴', color:'#ff6622', desc:'对最近敌人造成 25+ 伤害' },
+  mapping:  { name:'探测卷轴', color:'#55ddff', desc:'揭示整层地图' },
+  bomb:     { name:'炼金炸弹', color:'#ffaa22', desc:'对周围 3 格内所有敌人造成伤害' },
+  soulgem:  { name:'灵魂宝石', color:'#bb66ff', desc:'立即获得 50 灵魂' },
+  haste:    { name:'迅捷药水', color:'#66ffcc', desc:'本层速度 +40' },
+};
+const ITEM_ORDER = ['potion','strength','armor','teleport','fireball','mapping','bomb','soulgem','haste'];
+
+/* ═══════════════════════════════════════════════════════════
+   Canvas
+   ═══════════════════════════════════════════════════════════ */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+cv.width = VW * DPR; cv.height = VH * DPR;
+cv.style.width = VW + 'px'; cv.style.height = VH + 'px';
+ctx.scale(DPR, DPR);
+
+const terrainCv = document.createElement('canvas');
+terrainCv.width = VW * DPR; terrainCv.height = VH * DPR;
+const tctx = terrainCv.getContext('2d');
+tctx.scale(DPR, DPR);
+
+const overlay = document.getElementById('overlay');
+const loglist = document.getElementById('loglist');
+
+/* ═══════════════════════════════════════════════════════════
+   全局状态
+   ═══════════════════════════════════════════════════════════ */
+let map, explored, visible, rooms, monsters, items, stairs;
+let player, depth, turnCount, messages, gameState, runSouls;
+let particles = [], floaters = [], shockwaves = [];
+let shake = 0, terrainDirty = true, logDirty = true, hitFlash = 0;
+let lastT = 0;
+
+/* ═══════════════════════════════════════════════════════════
+   消息 / 特效
+   ═══════════════════════════════════════════════════════════ */
+function msg(text, color) {
+  messages.push({ text, color: color || '#93a6c4' });
+  if (messages.length > 140) messages.shift();
+  logDirty = true;
+}
+function renderLog() {
+  loglist.innerHTML = messages.slice(-70)
+    .map(m => `<div style="color:${m.color}">${m.text}</div>`).join('');
+  loglist.scrollTop = loglist.scrollHeight;
+  logDirty = false;
+}
+function addFloater(gx, gy, text, color, big) {
+  floaters.push({ x: gx*TS+TS/2, y: gy*TS+TS/2, text, color, life:1, big: !!big });
+}
+function addParticles(gx, gy, color, count, spd) {
+  const cx = gx*TS+TS/2, cy = gy*TS+TS/2;
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = (0.4 + Math.random()) * (spd || 1.6);
+    particles.push({
+      x:cx, y:cy,
+      vx: Math.cos(a)*s, vy: Math.sin(a)*s - 0.6,
+      life: 0.75 + Math.random()*0.5, max: 1.25,
+      color, r: 1.4 + Math.random()*2.8
+    });
+  }
+}
+function addShockwave(gx, gy, color, maxR) {
+  shockwaves.push({ x: gx*TS+TS/2, y: gy*TS+TS/2, r:0, maxR: maxR || TS*3, color, life:1 });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   关卡生成
+   ═══════════════════════════════════════════════════════════ */
+function carveH(x1, x2, y) {
+  for (let x = Math.min(x1,x2); x <= Math.max(x1,x2); x++) map[y*MAP_W+x] = FLOOR;
+}
+function carveV(y1, y2, x) {
+  for (let y = Math.min(y1,y2); y <= Math.max(y1,y2); y++) map[y*MAP_W+x] = FLOOR;
+}
+function connectRooms(a, b) {
+  const ax = a.x + (a.w>>1), ay = a.y + (a.h>>1);
+  const bx = b.x + (b.w>>1), by = b.y + (b.h>>1);
+  if (Math.random() < 0.5) { carveH(ax,bx,ay); carveV(ay,by,bx); }
+  else { carveV(ay,by,ax); carveH(ax,bx,by); }
+}
+
+function monsterPool(d) {
+  const pools = [
+    ['rat','goblin'],
+    ['goblin','skeleton'],
+    ['skeleton','orc','goblin'],
+    ['orc','wraith','skeleton'],
+    ['wraith','troll','orc'],
+    ['troll','demon','wraith'],
+    ['demon','lich','troll'],
+    ['demon','lich','gargoyle'],
+    ['lich','gargoyle','demon'],
+    ['gargoyle','demon','lich'],
+  ];
+  return pools[clamp(d-1, 0, pools.length-1)];
+}
+
+function spawnMonster(type, x, y) {
+  const base = MONSTER_TYPES[type];
+  const s = 1 + (depth - 1) * 0.055;
+  monsters.push({
+    type, x, y, px:x*TS, py:y*TS,
+    hp: Math.round(base.hp * s),
+    maxhp: Math.round(base.hp * s),
+    atk: Math.round(base.atk * (1 + (depth-1)*0.045)),
+    def: base.def,
+    speed: base.speed,
+    xp: base.xp,
+    souls: base.souls,
+    color: base.color,
+    size: base.size,
+    shape: base.shape,
+    phase: !!base.phase,
+    regen: base.regen || 0,
+    caster: !!base.caster,
+    boss: !!base.boss,
+    name: base.name,
+    energy: 0,
+    awake: false,
+    seed: Math.random(),
+    attackAnim: 0,
+    flash: 0,
+    castCd: rndR(3,6),
+    isPlayer: false,
+  });
+}
+
+function generateLevel() {
+  map = new Uint8Array(MAP_W*MAP_H);
+  explored = new Uint8Array(MAP_W*MAP_H);
+  visible = new Uint8Array(MAP_W*MAP_H);
+  rooms = []; monsters = []; items = [];
+  particles = []; floaters = []; shockwaves = [];
+
+  for (let i = 0; i < 500 && rooms.length < 14; i++) {
+    const w = rndR(5,11), h = rndR(4,7);
+    const x = rndR(1, MAP_W-w-2), y = rndR(1, MAP_H-h-2);
+    const nr = { x, y, w, h };
+    if (rooms.some(r =>
+      !(nr.x+nr.w+1 < r.x || r.x+r.w+1 < nr.x ||
+        nr.y+nr.h+1 < r.y || r.y+r.h+1 < nr.y))) continue;
+    rooms.push(nr);
+  }
+  for (const r of rooms)
+    for (let y = r.y; y < r.y+r.h; y++)
+      for (let x = r.x; x < r.x+r.w; x++)
+        map[y*MAP_W+x] = FLOOR;
+  for (let i = 1; i < rooms.length; i++) connectRooms(rooms[i-1], rooms[i]);
+  for (let k = 0; k < 3; k++) {
+    const a = rooms[rnd(rooms.length)], b = rooms[rnd(rooms.length)];
+    if (a !== b) connectRooms(a,b);
+  }
+
+  const start = rooms[0];
+  player.x = start.x + (start.w>>1);
+  player.y = start.y + (start.h>>1);
+  player.px = player.x*TS; player.py = player.y*TS;
+  player.energy = 100;
+
+  let far = rooms[0], best = -1;
+  for (const r of rooms) {
+    const d = Math.abs(r.x-start.x) + Math.abs(r.y-start.y);
+    if (d > best) { best = d; far = r; }
+  }
+  stairs = { x: far.x + (far.w>>1), y: far.y + (far.h>>1) };
+
+  const pool = monsterPool(depth);
+  const count = 4 + Math.min(11, depth*2);
+  for (let i = 0; i < count; i++) {
+    const r = rooms[rnd(rooms.length)];
+    const x = rndR(r.x, r.x+r.w-1), y = rndR(r.y, r.y+r.h-1);
+    if (Math.abs(x-player.x) + Math.abs(y-player.y) < 6) continue;
+    if (x === stairs.x && y === stairs.y) continue;
+    if (monsters.some(m => m.x===x && m.y===y)) continue;
+    spawnMonster(pool[rnd(pool.length)], x, y);
+  }
+
+  if (BOSS_FLOORS[depth]) {
+    const bt = BOSS_FLOORS[depth];
+    spawnMonster(bt, stairs.x, Math.max(1, stairs.y-3));
+    msg('空气骤然凝固……有什么东西在深处苏醒。', '#ff5a7a');
+  }
+
+  // 物品
+  const luckMul = 1 + (meta.upgrades.luck||0)*0.06;
+  const itemCount = rndR(4,7);
+  for (let i = 0; i < itemCount; i++) {
+    const r = rooms[rnd(rooms.length)];
+    const x = rndR(r.x, r.x+r.w-1), y = rndR(r.y, r.y+r.h-1);
+    if (map[y*MAP_W+x] !== FLOOR) continue;
+    if (items.some(it => it.x===x && it.y===y)) continue;
+    if (x === player.x && y === player.y) continue;
+    let key;
+    const roll = Math.random();
+    if (roll < 0.30) key = 'potion';
+    else if (roll < 0.42) key = 'strength';
+    else if (roll < 0.53) key = 'armor';
+    else if (roll < 0.63) key = 'teleport';
+    else if (roll < 0.73) key = 'fireball';
+    else if (roll < 0.80) key = 'mapping';
+    else if (roll < 0.88) key = 'bomb';
+    else if (roll < 0.95) key = 'haste';
+    else key = 'soulgem';
+    items.push({ x, y, key, seed: Math.random() });
+  }
+
+  // 遗物掉落（稀有的金色宝箱）
+  if (Math.random() < 0.45 + (meta.upgrades.luck||0)*0.03) {
+    const r = rooms[rnd(rooms.length)];
+    const x = rndR(r.x, r.x+r.w-1), y = rndR(r.y, r.y+r.h-1);
+    if (map[y*MAP_W+x] === FLOOR && !items.some(it => it.x===x&&it.y===y) &&
+        !(x===player.x&&y===player.y)) {
+      const relicKey = RELIC_KEYS[rnd(RELIC_KEYS.length)];
+      items.push({ x, y, key:'__relic__', relic: relicKey, seed: Math.random() });
+    }
+  }
+
+  computeFOV();
+  terrainDirty = true;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   视野
+   ═══════════════════════════════════════════════════════════ */
+function hasLOS(x0, y0, x1, y1) {
+  let dx = Math.abs(x1-x0), dy = Math.abs(y1-y0);
+  let sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx - dy, x = x0, y = y0, guard = 0;
+  while (guard++ < 200) {
+    if (x === x1 && y === y1) return true;
+    const e2 = 2*err;
+    if (e2 > -dy) { err -= dy; x += sx; }
+    if (e2 < dx) { err += dx; y += sy; }
+    if (x === x1 && y === y1) return true;
+    if (map[y*MAP_W+x] === WALL) return false;
+  }
+  return false;
+}
+function computeFOV() {
+  visible.fill(0);
+  const R = FOV_RADIUS, px = player.x, py = player.y;
+  const ri = Math.ceil(R);
+  for (let y = py-ri; y <= py+ri; y++) {
+    for (let x = px-ri; x <= px+ri; x++) {
+      if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) continue;
+      const dx = x-px, dy = y-py;
+      if (dx*dx + dy*dy > R*R) continue;
+      if (hasLOS(px, py, x, y)) {
+        const i = y*MAP_W+x;
+        visible[i] = 1; explored[i] = 1;
+      }
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   查询
+   ═══════════════════════════════════════════════════════════ */
+function monsterAt(x, y) {
+  for (const m of monsters) if (m.hp > 0 && m.x === x && m.y === y) return m;
+  return null;
+}
+function itemAt(x, y) { return items.find(it => it.x===x && it.y===y); }
+function relicOwned(k) { return player.relics.includes(k); }
+
+/* ═══════════════════════════════════════════════════════════
+   战斗
+   ═══════════════════════════════════════════════════════════ */
+function playerAttackBonus() {
+  let mult = 1;
+  if (relicOwned('frenzy') && player.hp < player.maxhp*0.4) mult *= 1.5;
+  if (player.hunterBuff > 0) mult *= 2;
+  return mult;
+}
+
+function attack(attacker, target) {
+  const isPlayerAttacking = (attacker === player);
+  let dmg = Math.max(1, attacker.atk + rnd(5) - 2 - target.def);
+
+  let critChance = isPlayerAttacking ? player.crit : 0.06;
+  if (isPlayerAttacking && relicOwned('eye')) critChance += 0.18;
+  const crit = Math.random() < critChance;
+  if (crit) dmg = Math.round(dmg * 1.9);
+
+  if (isPlayerAttacking) dmg = Math.round(dmg * playerAttackBonus());
+  if (!isPlayerAttacking && relicOwned('shield')) dmg = Math.round(dmg * 0.75);
+  if (!isPlayerAttacking && target === player) dmg = Math.max(1, dmg);
+
+  target.hp -= dmg;
+  target.flash = 1;
+  attacker.attackAnim = 1;
+
+  addFloater(target.x, target.y, '-'+dmg, isPlayerAttacking ? (crit?'#ffdd44':'#ffb055') : '#ff5566', crit);
+  addParticles(target.x, target.y, isPlayerAttacking ? '#ffb055' : '#ff5566', crit?16:8, crit?3.2:2.2);
+
+  if (isPlayerAttacking) {
+    // 吸血鬼
+    if (relicOwned('vampire') && dmg > 0) {
+      const heal = Math.max(1, Math.round(dmg*0.2));
+      const actual = Math.min(heal, player.maxhp - player.hp);
+      if (actual > 0) {
+        player.hp += actual;
+        addFloater(player.x, player.y, '+'+actual, '#ff7799');
+      }
+    }
+    // 猎手
+    if (relicOwned('hunter')) player.hunterBuff = 1;
+    msg(`你击中${target.name}，造成 ${dmg} 点伤害${crit?'（暴击！）':''}。`, crit?'#ffdd44':'#c8d6ee');
+  } else {
+    shake = crit ? 10 : 5;
+    hitFlash = 0.6;
+    if (relicOwned('thorns') && dmg > 0) {
+      const reflect = Math.max(1, Math.round(dmg*0.4));
+      attacker.hp -= reflect;
+      addFloater(attacker.x, attacker.y, '-'+reflect, '#88aa44');
+      if (attacker.hp <= 0) kill(attacker, true);
+    }
+    msg(`${attacker.name}击中你，造成 ${dmg} 点伤害${crit?'（暴击！）':''}。`, '#ff7788');
+  }
+
+  if (target.hp <= 0) kill(target);
+}
+
+function kill(target, silent) {
+  if (target === player) { die(); return; }
+  target.hp = 0;
+  addParticles(target.x, target.y, target.color, target.boss?60:22, target.boss?5:3);
+  addShockwave(target.x, target.y, target.color, target.boss?TS*8:TS*3.2);
+  if (target.boss) { shake = 22; hitFlash = 0.8; }
+
+  let soulsGained = target.souls;
+  if (relicOwned('greed')) soulsGained += 4;
+  soulsGained = Math.round(soulsGained * player.soulsRate);
+  if (relicOwned('siphon')) soulsGained = Math.round(soulsGained * 1.6);
+  runSouls += soulsGained;
+  meta.kills++;
+
+  addFloater(target.x, target.y, '+'+soulsGained+'◈', '#bb88ff');
+  if (!silent) msg(`你击杀了${target.name}，获得 ${soulsGained} 灵魂。`, '#8fe0a0');
+
+  gainXP(target.xp);
+
+  // 掉落
+  const dropChance = 0.16 + (meta.upgrades.luck||0)*0.02;
+  if (Math.random() < dropChance && !target.boss) {
+    let key = Math.random() < 0.7 ? 'potion' : 'teleport';
+    if (!items.some(it => it.x===target.x && it.y===target.y))
+      items.push({ x: target.x, y: target.y, key, seed: Math.random() });
+  }
+  if (target.boss) {
+    if (target.type === 'abyss') win();
+  }
+}
+
+function gainXP(amount) {
+  player.xp += amount;
+  while (player.xp >= player.xpNext) {
+    player.xp -= player.xpNext;
+    player.level++;
+    player.xpNext = Math.floor(player.xpNext * 1.5);
+    player.maxhp += 10;
+    player.hp = player.maxhp;
+    player.atk += 3;
+    player.def += 1;
+    player.crit += 0.005;
+    msg(`★ 升级！你现在是 ${player.level} 级。`, '#ffd76a');
+    addFloater(player.x, player.y-1, 'LEVEL UP', '#ffd76a', true);
+    addParticles(player.x, player.y, '#ffd76a', 30, 3.5);
+    addShockwave(player.x, player.y, '#ffd76a', TS*4);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   回合系统
+   ═══════════════════════════════════════════════════════════ */
+function finishTurn() {
+  player.energy -= 100;
+  runTurns();
+  turnCount++;
+  if (player.skillCd > 0) player.skillCd--;
+  if (player.hunterBuff > 0) player.hunterBuff--;
+  if (player.hasteTurns > 0) player.hasteTurns--;
+
+  // 再生
+  if (relicOwned('regen') && turnCount % 8 === 0 && player.hp < player.maxhp) {
+    player.hp = Math.min(player.maxhp, player.hp + 3);
+    addFloater(player.x, player.y, '+3', '#66ff88');
+  }
+
+  computeFOV();
+  terrainDirty = true;
+  updateSidebar();
+  if (player.hp <= 0) die();
+}
+
+function runTurns() {
+  let guard = 0;
+  while (guard++ < 8000) {
+    if (player.hp <= 0) return;
+    if (player.energy >= 100) return;
+    const ready = monsters.filter(m => m.hp > 0 && m.energy >= 100);
+    if (ready.length === 0) {
+      player.energy += player.speed;
+      for (const m of monsters) if (m.hp > 0) m.energy += m.speed;
+      continue;
+    }
+    for (const m of ready) {
+      if (m.hp <= 0) continue;
+      monsterAct(m);
+      m.energy -= 100;
+      // 回复
+      if (m.regen > 0 && m.hp > 0 && m.hp < m.maxhp) m.hp = Math.min(m.maxhp, m.hp + m.regen);
+      if (player.hp <= 0) return;
+    }
+    if (player.energy >= 100) return;
+  }
+}
+
+function monsterAct(m) {
+  const dx = player.x - m.x, dy = player.y - m.y;
+  const dist = Math.max(Math.abs(dx), Math.abs(dy));
+  const sees = dist <= 12 && hasLOS(m.x, m.y, player.x, player.y);
+  if (sees) m.awake = true;
+
+  if (!m.awake) {
+    if (Math.random() < 0.25) {
+      const dirs = [[0,1],[0,-1],[1,0],[-1,0]];
+      const [ox,oy] = dirs[rnd(4)];
+      tryMonsterMove(m, ox, oy);
+    }
+    return;
+  }
+
+  // 远程施法
+  if (m.caster && sees && dist >= 2 && dist <= 7 && m.castCd <= 0) {
+    const dmg = Math.max(1, Math.round(m.atk * 0.8 + rnd(4) - player.def * 0.4));
+    player.hp -= dmg;
+    player.flash = 1;
+    addFloater(player.x, player.y, '-'+dmg, '#88ffaa');
+    addParticles(player.x, player.y, '#88ffaa', 12, 2.5);
+    // 画线
+    addShockwave(player.x, player.y, '#88ffaa', TS*2);
+    shake = 4; hitFlash = 0.35;
+    msg(`${m.name}射出一道奥术飞弹，造成 ${dmg} 点伤害。`, '#88ffaa');
+    m.castCd = rndR(3,5);
+    if (player.hp <= 0) die();
+    return;
+  }
+  if (m.castCd > 0) m.castCd--;
+
+  if (dist <= 1) { attack(m, player); return; }
+
+  const sx = Math.sign(dx), sy = Math.sign(dy);
+  const opts = [];
+  if (Math.abs(dx) > Math.abs(dy)) opts.push([sx,0],[0,sy],[sx,sy]);
+  else opts.push([0,sy],[sx,0],[sx,sy]);
+  if (Math.random() < 0.25) opts.reverse();
+
+  for (const [ox,oy] of opts) {
+    if (ox === 0 && oy === 0) continue;
+    if (tryMonsterMove(m, ox, oy)) return;
+  }
+}
+
+function tryMonsterMove(m, dx, dy) {
+  const nx = m.x+dx, ny = m.y+dy;
+  if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) return false;
+  if (map[ny*MAP_W+nx] === WALL && !m.phase) return false;
+  if (nx === player.x && ny === player.y) return false;
+  if (monsterAt(nx, ny)) return false;
+  m.x = nx; m.y = ny;
+  return true;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   玩家行为
+   ═══════════════════════════════════════════════════════════ */
+function tryMove(dx, dy) {
+  if (gameState !== 'play') return;
+  player.lastDir = [dx, dy];
+  const nx = player.x+dx, ny = player.y+dy;
+  if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) return;
+  if (map[ny*MAP_W+nx] === WALL) return;
+
+  const m = monsterAt(nx, ny);
+  if (m) { attack(player, m); finishTurn(); return; }
+
+  player.x = nx; player.y = ny;
+  pickupAt(nx, ny);
+  finishTurn();
+}
+
+function pickupAt(x, y) {
+  const it = itemAt(x, y);
+  if (!it) return;
+
+  if (it.key === '__relic__') {
+    const rk = it.relic;
+    if (!player.relics.includes(rk)) {
+      player.relics.push(rk);
+      if (!meta.seenRelics.includes(rk)) meta.seenRelics.push(rk);
+      const r = RELICS[rk];
+      msg(`★ 获得遗物：${r.name} —— ${r.desc}`, r.color);
+      addFloater(x, y, r.name, r.color, true);
+      addParticles(x, y, r.color, 30, 3.5);
+      addShockwave(x, y, r.color, TS*4.5);
+      // 立即应用
+      if (rk === 'pendant') { player.maxhp += 14; player.hp += 14; }
+      if (rk === 'swift') { player.speed += 30; }
+      shake = 8;
+    }
+    items.splice(items.indexOf(it), 1);
+    return;
+  }
+
+  const def = ITEMS[it.key];
+  player.inv[it.key] = (player.inv[it.key] || 0) + 1;
+  items.splice(items.indexOf(it), 1);
+  msg(`拾取：${def.name}。`, def.color);
+  addParticles(x, y, def.color, 8, 1.2);
+}
+
+function useItem(idx) {
+  if (gameState !== 'play') return;
+  const key = ITEM_ORDER[idx];
+  if (!key || !player.inv[key]) { msg('你没有这个物品。', '#66788f'); return; }
+  const def = ITEMS[key];
+
+  if (key === 'potion') {
+    if (player.hp >= player.maxhp) { msg('你的生命已满。', '#66788f'); return; }
+    const heal = Math.min(30, player.maxhp - player.hp);
+    player.hp += heal;
+    addFloater(player.x, player.y, '+'+heal, '#7cffa8');
+    addParticles(player.x, player.y, '#7cffa8', 14, 2);
+    msg(`你饮下药水，恢复了 ${heal} 点生命。`, '#7cffa8');
+  }
+  else if (key === 'strength') {
+    player.atk += 2;
+    msg('力量涌入四肢，攻击力 +2。', '#ff8833');
+    addParticles(player.x, player.y, '#ff8833', 18, 2.4);
+  }
+  else if (key === 'armor') {
+    player.def += 1;
+    msg('铁甲片嵌入皮肉，防御 +1。', '#8899bb');
+    addParticles(player.x, player.y, '#8899bb', 18, 2.4);
+  }
+  else if (key === 'teleport') {
+    let tx, ty, tries = 0;
+    do { tx = rndR(1, MAP_W-2); ty = rndR(1, MAP_H-2); tries++; }
+    while (map[ty*MAP_W+tx] !== FLOOR && tries < 800);
+    addParticles(player.x, player.y, '#aa77ff', 24, 3);
+    player.x = tx; player.y = ty;
+    player.px = tx*TS; player.py = ty*TS;
+    addParticles(tx, ty, '#aa77ff', 24, 3);
+    addShockwave(tx, ty, '#aa77ff', TS*4);
+    msg('空间扭曲，你被传送到别处。', '#aa77ff');
+    computeFOV(); terrainDirty = true;
+  }
+  else if (key === 'fireball') {
+    let target = null, bestD = 1e9;
+    for (const m of monsters) {
+      if (m.hp <= 0) continue;
+      if (!visible[m.y*MAP_W+m.x]) continue;
+      const d = Math.abs(m.x-player.x) + Math.abs(m.y-player.y);
+      if (d < bestD) { bestD = d; target = m; }
+    }
+    if (!target) { msg('视野中没有敌人。', '#66788f'); return; }
+    const dmg = 25 + player.level*4;
+    target.hp -= dmg;
+    target.flash = 1;
+    addFloater(target.x, target.y, '-'+dmg, '#ff8833', true);
+    addParticles(target.x, target.y, '#ff8833', 34, 3.8);
+    addShockwave(target.x, target.y, '#ff8833', TS*4);
+    msg(`火球吞噬了${target.name}，造成 ${dmg} 点伤害。`, '#ff8833');
+    if (target.hp <= 0) kill(target);
+  }
+  else if (key === 'mapping') {
+    for (let i = 0; i < explored.length; i++) explored[i] = 1;
+    msg('整层地牢的结构在你脑中展开。', '#55ddff');
+    terrainDirty = true;
+  }
+  else if (key === 'bomb') {
+    let hit = 0;
+    for (const m of monsters) {
+      if (m.hp <= 0) continue;
+      const d = Math.max(Math.abs(m.x-player.x), Math.abs(m.y-player.y));
+      if (d <= 3) {
+        const dmg = 20 + player.level*3;
+        m.hp -= dmg;
+        m.flash = 1;
+        addFloater(m.x, m.y, '-'+dmg, '#ffaa22');
+        addParticles(m.x, m.y, '#ffaa22', 14, 2.5);
+        hit++;
+        if (m.hp <= 0) kill(m);
+      }
+    }
+    addShockwave(player.x, player.y, '#ffaa22', TS*7);
+    shake = 12;
+    msg(`炸弹爆炸，命中 ${hit} 个敌人！`, '#ffaa22');
+  }
+  else if (key === 'soulgem') {
+    runSouls += 50;
+    msg('灵魂宝石碎裂，获得 50 灵魂。', '#bb66ff');
+    addFloater(player.x, player.y, '+50◈', '#bb66ff', true);
+    addParticles(player.x, player.y, '#bb66ff', 22, 3);
+  }
+  else if (key === 'haste') {
+    player.hasteTurns = 999;
+    player.speed += 40;
+    msg('迅捷药水生效，本层速度大幅提升。', '#66ffcc');
+    addParticles(player.x, player.y, '#66ffcc', 20, 2.5);
+  }
+
+  player.inv[key]--;
+  if (player.inv[key] <= 0) delete player.inv[key];
+  finishTurn();
+}
+
+function useSkill() {
+  if (gameState !== 'play') return;
+  if (player.skillCd > 0) {
+    msg(`${player.skillName}还在冷却（${player.skillCd} 回合）。`, '#66788f');
+    return;
+  }
+  const key = player.skill;
+  let used = false;
+
+  if (key === 'whirlwind') {
+    const adj = monsters.filter(m => m.hp > 0 &&
+      Math.abs(m.x-player.x) <= 1 && Math.abs(m.y-player.y) <= 1);
+    if (adj.length === 0) { msg('周围没有敌人。', '#66788f'); return; }
+    for (const m of adj) {
+      const dmg = Math.max(1, Math.round(player.atk*1.6 + rnd(6) - m.def));
+      m.hp -= dmg; m.flash = 1;
+      addFloater(m.x, m.y, '-'+dmg, '#ffaa44', true);
+      addParticles(m.x, m.y, '#ffaa44', 14, 3);
+      if (m.hp <= 0) kill(m);
+    }
+    addShockwave(player.x, player.y, '#ffaa44', TS*3.5);
+    shake = 8;
+    msg(`旋风斩席卷了 ${adj.length} 个敌人！`, '#ffaa44');
+    used = true;
+  }
+  else if (key === 'dash') {
+    let target = null, bestD = 1e9;
+    for (const m of monsters) {
+      if (m.hp <= 0) continue;
+      if (!visible[m.y*MAP_W+m.x]) continue;
+      const d = Math.abs(m.x-player.x) + Math.abs(m.y-player.y);
+      if (d < bestD) { bestD = d; target = m; }
+    }
+    if (!target) { msg('视野内没有敌人。', '#66788f'); return; }
+    const dx = Math.sign(target.x-player.x), dy = Math.sign(target.y-player.y);
+    let moved = 0;
+    for (let s = 0; s < 2; s++) {
+      const nx = player.x+dx, ny = player.y+dy;
+      if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) break;
+      if (map[ny*MAP_W+nx] === WALL) break;
+      const mm = monsterAt(nx, ny);
+      if (mm) {
+        const dmg = Math.max(1, Math.round(player.atk*1.4 + rnd(5) - mm.def));
+        mm.hp -= dmg; mm.flash = 1;
+        addFloater(mm.x, mm.y, '-'+dmg, '#66ff99', true);
+        addParticles(mm.x, mm.y, '#66ff99', 12, 2.5);
+        if (mm.hp <= 0) kill(mm);
+        moved++;
+        break;
+      }
+      player.x = nx; player.y = ny;
+      moved++;
+    }
+    if (moved === 0) { msg('无处可冲刺。', '#66788f'); return; }
+    addParticles(player.x, player.y, '#66ff99', 18, 3);
+    addShockwave(player.x, player.y, '#66ff99', TS*3);
+    msg('你疾风般突进。', '#66ff99');
+    used = true;
+  }
+  else if (key === 'arcane') {
+    let target = null, bestD = 1e9;
+    for (const m of monsters) {
+      if (m.hp <= 0) continue;
+      if (!visible[m.y*MAP_W+m.x]) continue;
+      const d = Math.abs(m.x-player.x) + Math.abs(m.y-player.y);
+      if (d < bestD) { bestD = d; target = m; }
+    }
+    if (!target) { msg('视野内没有敌人。', '#66788f'); return; }
+    const dmg = Math.round(player.atk*2.2 + 12 + player.level*4);
+    target.hp -= dmg; target.flash = 1;
+    addFloater(target.x, target.y, '-'+dmg, '#bb88ff', true);
+    addParticles(target.x, target.y, '#bb88ff', 28, 4);
+    addShockwave(target.x, target.y, '#bb88ff', TS*5);
+    shake = 10;
+    msg(`奥术冲击命中${target.name}，造成 ${dmg} 点伤害。`, '#bb88ff');
+    if (target.hp <= 0) kill(target);
+    used = true;
+  }
+
+  if (used) {
+    player.skillCd = CLASSES[player.classKey].skillCd;
+    finishTurn();
+  }
+}
+
+function descend() {
+  if (gameState !== 'play') return;
+  if (player.x !== stairs.x || player.y !== stairs.y) {
+    msg('这里没有向下的楼梯。', '#66788f');
+    return;
+  }
+  if (depth >= MAX_DEPTH) { msg('这里已是最深处。', '#66788f'); return; }
+  depth++;
+  if (depth > meta.bestDepth) meta.bestDepth = depth;
+  player.hasteTurns = 0;
+  if (player.hasteBonus) { player.speed -= player.hasteBonus; player.hasteBonus = 0; }
+  msg(`你走下楼梯，来到地下 ${depth} 层。`, '#aaccff');
+  generateLevel();
+  updateSidebar();
+  saveMeta();
+}
+
+function wait() {
+  if (gameState !== 'play') return;
+  msg('你屏息等待。', '#66788f');
+  finishTurn();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   死亡 / 胜利
+   ═══════════════════════════════════════════════════════════ */
+function die() {
+  if (gameState !== 'play') return;
+  gameState = 'dead';
+  player.hp = 0;
+  addParticles(player.x, player.y, '#ff3355', 70, 4.5);
+  shake = 18; hitFlash = 1;
+
+  // 灵魂转化
+  const totalSouls = runSouls + Math.floor(depth * 40) + player.level * 25;
+  meta.souls += totalSouls;
+  meta.totalRuns++;
+  if (depth > meta.bestDepth) meta.bestDepth = depth;
+  saveMeta();
+
+  setTimeout(() => {
+    showOverlay(`
+      <div class="dead-title">你 死 了</div>
+      <div class="souls-gained">获得 <b>${totalSouls}</b> ◈ 灵魂</div>
+      <div class="dead-stats">
+        抵达深度 &nbsp;<b>地下 ${depth} 层</b><br>
+        角色等级 &nbsp;<b>Lv.${player.level}</b> &nbsp;·&nbsp; 职业 <b>${CLASSES[player.classKey].name}</b><br>
+        存活回合 &nbsp;<b>${turnCount}</b> &nbsp;·&nbsp; 击杀 <b>${meta.kills}</b><br>
+        <span style="color:#5d7ba8">当前灵魂总量</span> &nbsp;<b>${meta.souls}</b>
+      </div>
+      <div class="prompt">按 R 返回枢纽</div>
+    `);
+  }, 750);
+}
+
+function win() {
+  if (gameState !== 'play') return;
+  gameState = 'win';
+  addParticles(player.x, player.y, '#ffd76a', 100, 5);
+  addShockwave(player.x, player.y, '#ffd76a', TS*12);
+  shake = 20;
+
+  const totalSouls = runSouls + Math.floor(depth * 40) + player.level * 25 + 2000;
+  meta.souls += totalSouls;
+  meta.totalRuns++;
+  meta.wins++;
+  if (depth > meta.bestDepth) meta.bestDepth = depth;
+  saveMeta();
+
+  setTimeout(() => {
+    showOverlay(`
+      <div class="win-title">深 渊 已 平 息</div>
+      <div class="souls-gained">获得 <b>${totalSouls}</b> ◈ 灵魂</div>
+      <div class="dead-stats">
+        你击杀了深渊之主，封印了这道裂隙。<br><br>
+        角色等级 &nbsp;<b>Lv.${player.level}</b> &nbsp;·&nbsp; 职业 <b>${CLASSES[player.classKey].name}</b><br>
+        存活回合 &nbsp;<b>${turnCount}</b><br>
+        <span style="color:#5d7ba8">当前灵魂总量</span> &nbsp;<b>${meta.souls}</b>
+      </div>
+      <div class="prompt">按 R 返回枢纽</div>
+    `);
+  }, 750);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   开始新一局
+   ═══════════════════════════════════════════════════════════ */
+function startRun(classKey) {
+  const cls = CLASSES[classKey];
+  const u = meta.upgrades;
+
+  player = {
+    x:0, y:0, px:0, py:0,
+    hp: cls.hp + (u.hp||0)*3,
+    maxhp: cls.hp + (u.hp||0)*3,
+    atk: cls.atk + (u.atk||0),
+    def: cls.def + (u.def||0),
+    speed: cls.speed + (u.speed||0)*5,
+    crit: cls.crit + (u.crit||0)*0.03,
+    soulsRate: 1 + (u.souls||0)*0.12,
+    level:1, xp:0, xpNext:20,
+    energy:100,
+    inv: { potion: 2 + (u.potions||0) },
+    relics: [],
+    skill: cls.skill,
+    skillCd: 0,
+    skillName: cls.skillName,
+    classKey,
+    name: '你', color: cls.color,
+    attackAnim:0, flash:0,
+    lastDir: [0,1],
+    hunterBuff: 0,
+    hasteTurns: 0,
+    hasteBonus: 0,
+    isPlayer: true,
+  };
+
+  depth = 1;
+  turnCount = 0;
+  runSouls = 0;
+  messages = [];
+  particles = []; floaters = []; shockwaves = [];
+  shake = 0; hitFlash = 0;
+
+  generateLevel();
+  msg(`【${cls.name}】踏入深渊。`, cls.color);
+  msg('移动：方向键 / WASD / HJKL　攻击：撞击敌人', '#5d7ba8');
+  msg('技能：Q 键　　物品：数字键 1-9', '#5d7ba8');
+  msg('下楼：站在 ⌄ 上按 Enter', '#5d7ba8');
+
+  gameState = 'play';
+  hideOverlay();
+  updateSidebar();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UI —— 覆盖层
+   ═══════════════════════════════════════════════════════════ */
+function showOverlay(html) {
+  overlay.innerHTML = html;
+  overlay.style.display = 'flex';
+}
+function hideOverlay() { overlay.style.display = 'none'; }
+
+function showTitle() {
+  gameState = 'title';
+  showOverlay(`
+    <div class="title">深 渊 回 响</div>
+    <div class="subtitle">ECHOES OF THE ABYSS</div>
+    <div class="keys">
+      移动 &nbsp;<b>方向键 / WASD / HJKL</b>　　攻击 &nbsp;<b>撞击敌人</b><br>
+      等待 &nbsp;<b>空格</b>　　下楼 &nbsp;<b>Enter</b>　　技能 &nbsp;<b>Q</b><br>
+      使用物品 &nbsp;<b>数字键 1 – 9</b>　　拾取 &nbsp;<b>自动</b><br>
+      <span style="color:#bb88ff">死亡后将灵魂带回枢纽，永久强化下一次冒险。</span>
+    </div>
+    <div class="prompt">按 任 意 键 开 始</div>
+  `);
+}
+
+function showHub() {
+  gameState = 'hub';
+  let html = `
+    <div class="hub-souls">
+      <span class="soul-icon">◈</span>
+      <span class="soul-num">${meta.souls}</span>
+      <span class="soul-label">灵 魂</span>
+    </div>
+    <div class="hub-stats">
+      最深抵达 ${meta.bestDepth} 层 &nbsp;·&nbsp; 总击杀 ${meta.kills} &nbsp;·&nbsp; 挑战次数 ${meta.totalRuns} &nbsp;·&nbsp; 通关 ${meta.wins} 次
+    </div>
+    <div class="shop-grid">`;
+
+  for (const [key, up] of Object.entries(UPGRADES)) {
+    const lvl = meta.upgrades[key] || 0;
+    const maxed = lvl >= up.max;
+    const cost = upgradeCost(key, lvl);
+    const canAfford = meta.souls >= cost;
+    html += `
+      <div class="shop-item ${maxed?'maxed':''}">
+        <div class="si-head">
+          <span class="si-name">${up.name}</span>
+          <span class="si-lvl">Lv.${lvl} / ${up.max}</span>
+        </div>
+        <div class="si-desc">${up.desc}</div>
+        <button class="si-buy" ${maxed || !canAfford ? 'disabled' : ''} onclick="buyUpgrade('${key}')">
+          ${maxed ? '已 满 级' : `升级 · ${cost} ◈`}
+        </button>
+      </div>`;
+  }
+  html += `</div>
+    <button class="btn-main" onclick="showClassSelect()">进 入 深 渊</button>
+  `;
+  showOverlay(html);
+}
+
+function buyUpgrade(key) {
+  const up = UPGRADES[key];
+  const lvl = meta.upgrades[key] || 0;
+  if (lvl >= up.max) return;
+  const cost = upgradeCost(key, lvl);
+  if (meta.souls < cost) return;
+  meta.souls -= cost;
+  meta.upgrades[key] = lvl + 1;
+  saveMeta();
+  showHub();
+}
+
+function showClassSelect() {
+  gameState = 'classselect';
+  let html = `<div class="title" style="font-size:32px;letter-spacing:10px;margin-bottom:22px;">选 择 职 业</div>
+    <div class="class-grid">`;
+
+  for (const [key, cls] of Object.entries(CLASSES)) {
+    const unlocked = meta.unlockedClasses.includes(key);
+    html += `
+      <div class="class-card ${unlocked?'':'locked'}" onclick="${unlocked ? `startRun('${key}')` : `unlockClass('${key}')`}">
+        <div class="cc-name" style="color:${cls.color}">${cls.name}</div>
+        <div class="cc-desc">${cls.desc}</div>
+        <div class="cc-stats">
+          <span>❤ ${cls.hp}</span>
+          <span>⚔ ${cls.atk}</span>
+          <span>🛡 ${cls.def}</span>
+          <span>速 ${cls.speed}</span>
+          <span>暴 ${Math.round(cls.crit*100)}%</span>
+        </div>
+        <div class="cc-skill"><b style="color:${cls.color}">${cls.skillName}</b>：${cls.skillDesc}</div>
+        ${unlocked ? '' : `<div class="cc-lock">🔒 解锁需要 ${cls.unlockCost} ◈ 灵魂</div>`}
+      </div>`;
+  }
+  html += `</div><button class="btn-back" onclick="showHub()">返 回 枢 纽</button>`;
+  showOverlay(html);
+}
+
+function unlockClass(key) {
+  const cls = CLASSES[key];
+  if (meta.souls < cls.unlockCost) {
+    return;
+  }
+  meta.souls -= cls.unlockCost;
+  meta.unlockedClasses.push(key);
+  saveMeta();
+  showClassSelect();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   侧栏
+   ═══════════════════════════════════════════════════════════ */
+function updateSidebar() {
+  if (!player) return;
+  const hpPct = clamp(player.hp/player.maxhp, 0, 1) * 100;
+  const xpPct = clamp(player.xp/player.xpNext, 0, 1) * 100;
+  const cls = CLASSES[player.classKey];
+
+  let skillHtml = '';
+  if (player.skillCd > 0)
+    skillHtml = `<div class="skillrow"><span class="sk">${player.skillName}</span><span class="cd">冷却 ${player.skillCd}</span></div>`;
+  else
+    skillHtml = `<div class="skillrow"><span class="sk">${player.skillName}</span><span style="color:#8fe0ff">Q · 就绪</span></div>`;
+
+  document.getElementById('stats').innerHTML = `
+    <h3>${cls.name} · 状 态</h3>
+    <div class="srow"><span>生命</span><b>${Math.max(0, Math.round(player.hp))} / ${player.maxhp}</b></div>
+    <div class="hpwrap"><div class="hpbar" style="width:${hpPct}%"></div></div>
+    <div class="srow"><span>等级</span><b class="lvl">Lv.${player.level}</b></div>
+    <div class="xpwrap"><div class="xpbar" style="width:${xpPct}%"></div></div>
+    <div class="srow"><span>攻击 / 防御</span><b>${player.atk} / ${player.def}</b></div>
+    <div class="srow"><span>暴击率</span><b>${Math.round(player.crit*100)}%</b></div>
+    <div class="srow"><span>深度</span><b>地下 ${depth} 层</b></div>
+    <div class="srow"><span>回合</span><b>${turnCount}</b></div>
+    <div class="srow"><span>本次灵魂</span><b class="soulc">◈ ${runSouls}</b></div>
+    ${skillHtml}
+  `;
+
+  let invHtml = '<h3>物 品</h3>';
+  for (let i = 0; i < ITEM_ORDER.length; i++) {
+    const k = ITEM_ORDER[i];
+    const c = player.inv[k] || 0;
+    const def = ITEMS[k];
+    if (c > 0) {
+      invHtml += `<div class="islot">
+        <span class="num">${i+1}</span>
+        <span class="nm" style="color:${def.color}">${def.name}</span>
+        <span class="ct">×${c}</span>
+      </div>`;
+    } else {
+      invHtml += `<div class="islot empty">
+        <span class="num">${i+1}</span>
+        <span class="nm">——</span>
+      </div>`;
+    }
+  }
+  if (player.relics.length > 0) {
+    invHtml += `<h3 style="margin-top:10px">遗 物</h3><div class="relicrow">`;
+    for (const rk of player.relics) {
+      const r = RELICS[rk];
+      invHtml += `<span class="relic" style="color:${r.color};border-color:${rgba(r.color,0.5)}" title="${r.desc}">${r.name}</span>`;
+    }
+    invHtml += `</div>`;
+  }
+  document.getElementById('inv').innerHTML = invHtml;
+  logDirty = true;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   渲染 —— 地形
+   ═══════════════════════════════════════════════════════════ */
+function drawWallTile(c, px, py, seed, vis) {
+  const v = 0.35 + seed*0.65;
+  const lit = vis ? 1 : 0.45;
+  c.fillStyle = `hsl(222, 20%, ${(9 + v*6)*lit}%)`;
+  c.fillRect(px, py, TS, TS);
+
+  const bh = TS/2;
+  for (let r = 0; r < 2; r++) {
+    const off = (r%2)*(TS/2);
+    c.fillStyle = `rgba(150,180,230,${0.030*lit})`;
+    c.fillRect(px, py + r*bh, TS, 1);
+    c.fillStyle = `rgba(0,0,0,${0.28*lit})`;
+    c.fillRect(px + (off + TS/2) % TS, py + r*bh, 1, bh);
+  }
+  c.fillStyle = `rgba(140,180,255,${0.13*lit})`;
+  c.fillRect(px, py, TS, 2);
+  c.fillStyle = `rgba(140,180,255,${0.05*lit})`;
+  c.fillRect(px, py, 2, TS);
+  c.fillStyle = `rgba(0,0,0,${0.42*lit})`;
+  c.fillRect(px, py + TS - 2, TS, 2);
+}
+
+function drawFloorTile(c, px, py, seed, vis) {
+  const v = 0.4 + seed*0.6;
+  const lit = vis ? 1 : 0.4;
+  const hue = 226 - seed*10;
+  c.fillStyle = `hsl(${hue}, 16%, ${(6.5 + v*4)*lit}%)`;
+  c.fillRect(px, py, TS, TS);
+
+  c.strokeStyle = `rgba(130,165,225,${0.035*lit})`;
+  c.lineWidth = 1;
+  c.strokeRect(px+0.5, py+0.5, TS-1, TS-1);
+
+  if (seed > 0.72) {
+    c.fillStyle = `rgba(160,190,240,${0.030*lit})`;
+    c.fillRect(px + (seed*13) % (TS-4), py + (seed*29) % (TS-4), 2, 2);
+  }
+}
+
+function buildTerrain() {
+  tctx.clearRect(0, 0, VW, VH);
+  tctx.fillStyle = '#04050a';
+  tctx.fillRect(0, 0, VW, VH);
+
+  for (let y = 0; y < MAP_H; y++) {
+    for (let x = 0; x < MAP_W; x++) {
+      const i = y*MAP_W+x;
+      if (!explored[i]) continue;
+      const vis = visible[i] === 1;
+      const px = x*TS, py = y*TS;
+      const seed = hash2(x, y);
+      if (map[i] === WALL) drawWallTile(tctx, px, py, seed, vis);
+      else drawFloorTile(tctx, px, py, seed, vis);
+      if (!vis) {
+        tctx.fillStyle = 'rgba(3,4,10,0.68)';
+        tctx.fillRect(px, py, TS, TS);
+      }
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   渲染 —— 实体
+   ═══════════════════════════════════════════════════════════ */
+function drawStairs(t) {
+  const i = stairs.y*MAP_W + stairs.x;
+  if (!explored[i]) return;
+  const vis = visible[i] === 1;
+  const cx = stairs.x*TS + TS/2;
+  const cy = stairs.y*TS + TS/2;
+  const pulse = 0.5 + 0.5*Math.sin(t*0.0035);
+
+  ctx.save();
+  ctx.globalAlpha = vis ? 1 : 0.3;
+
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, TS*1.8);
+  g.addColorStop(0, `rgba(140,100,255,${0.32 + 0.24*pulse})`);
+  g.addColorStop(1, 'rgba(140,100,255,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(cx, cy, TS*1.8, 0, 7); ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, TS*(0.30 + 0.04*pulse), 0, 7);
+  ctx.fillStyle = `rgba(175,145,255,0.88)`;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, TS*0.15, 0, 7);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+
+  ctx.strokeStyle = `rgba(200,180,255,${0.45 + 0.3*pulse})`;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, TS*0.42, t*0.002, t*0.002 + Math.PI*1.4);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawItem(it, t) {
+  const i = it.y*MAP_W + it.x;
+  if (!explored[i]) return;
+  const vis = visible[i] === 1;
+  const cx = it.x*TS + TS/2;
+  const cy = it.y*TS + TS/2;
+  const bob = Math.sin(t*0.003 + it.seed*10) * 2;
+
+  const isRelic = it.key === '__relic__';
+  const col = isRelic ? RELICS[it.relic].color : ITEMS[it.key].color;
+
+  ctx.save();
+  ctx.globalAlpha = vis ? 1 : 0.3;
+
+  const glowR = isRelic ? TS*1.5 : TS*0.95;
+  const g = ctx.createRadialGradient(cx, cy+bob, 0, cx, cy+bob, glowR);
+  g.addColorStop(0, rgba(col, isRelic ? 0.75 : 0.5));
+  g.addColorStop(1, rgba(col, 0));
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(cx, cy+bob, glowR, 0, 7); ctx.fill();
+
+  if (isRelic) {
+    // 星形
+    ctx.translate(cx, cy+bob);
+    ctx.rotate(t*0.0012);
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    for (let k = 0; k < 8; k++) {
+      const a = (k/8)*Math.PI*2;
+      const r2 = k % 2 === 0 ? 8 : 3.6;
+      ctx.lineTo(Math.cos(a)*r2, Math.sin(a)*r2);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.translate(0, 0);
+  } else {
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy+bob-6.5);
+    ctx.lineTo(cx+5, cy+bob);
+    ctx.lineTo(cx, cy+bob+6.5);
+    ctx.lineTo(cx-5, cy+bob);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawCreature(e, t, isPlayer) {
+  const cx = e.px + TS/2;
+  const cy = e.py + TS/2 + Math.sin(t*0.0032 + e.seed*12) * 1.4;
+  const r = TS * e.size;
+  const col = e.color;
+  const flash = e.flash > 0 ? e.flash : 0;
+
+  let ox = 0, oy = 0;
+  if (e.attackAnim > 0) {
+    const a = e.attackAnim;
+    ox = Math.sin(a*Math.PI) * 4;
+    oy = -Math.sin(a*Math.PI) * 2;
+  }
+  const X = cx + ox, Y = cy + oy;
+
+  ctx.save();
+
+  const g = ctx.createRadialGradient(X, Y, r*0.2, X, Y, r*2.6);
+  g.addColorStop(0, rgba(col, 0.40 + flash*0.4));
+  g.addColorStop(1, rgba(col, 0));
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(X, Y, r*2.6, 0, 7); ctx.fill();
+
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + r*1.0, r*0.92, r*0.34, 0, 0, 7);
+  ctx.fill();
+
+  const bg = ctx.createRadialGradient(X - r*0.35, Y - r*0.45, r*0.08, X, Y, r*1.05);
+  bg.addColorStop(0, lighten(col, 0.42));
+  bg.addColorStop(0.65, col);
+  bg.addColorStop(1, darken(col, 0.4));
+  ctx.fillStyle = bg;
+
+  if (e.shape === 'ghost') {
+    ctx.beginPath();
+    ctx.arc(X, Y - r*0.15, r*0.85, Math.PI, 0);
+    ctx.lineTo(X + r*0.85, Y + r*0.75);
+    for (let k = 0; k < 4; k++) {
+      const wx = X + r*0.85 - (k+0.5)*(r*1.7/4);
+      ctx.quadraticCurveTo(wx + r*0.2, Y + r*0.45, wx - r*0.2, Y + r*0.75);
+    }
+    ctx.closePath();
+    ctx.globalAlpha = 0.86;
+    ctx.fill();
+  } else if (e.shape === 'rat') {
+    ctx.beginPath();
+    ctx.ellipse(X, Y, r*1.15, r*0.78, 0, 0, 7);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(X + r*0.9, Y - r*0.1, r*0.42, 0, 7);
+    ctx.fill();
+  } else if (e.shape === 'skull') {
+    ctx.beginPath();
+    ctx.arc(X, Y - r*0.1, r*0.82, 0, 7);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(X - r*0.45, Y + r*0.5);
+    ctx.lineTo(X + r*0.45, Y + r*0.5);
+    ctx.lineTo(X + r*0.3, Y + r*0.95);
+    ctx.lineTo(X - r*0.3, Y + r*0.95);
+    ctx.closePath();
+    ctx.fill();
+  } else if (e.shape === 'horn') {
+    ctx.beginPath(); ctx.arc(X, Y, r, 0, 7); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(X - r*0.65, Y - r*0.65);
+    ctx.quadraticCurveTo(X - r*1.4, Y - r*1.5, X - r*0.55, Y - r*1.35);
+    ctx.quadraticCurveTo(X - r*0.6, Y - r*0.95, X - r*0.30, Y - r*0.80);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(X + r*0.65, Y - r*0.65);
+    ctx.quadraticCurveTo(X + r*1.4, Y - r*1.5, X + r*0.55, Y - r*1.35);
+    ctx.quadraticCurveTo(X + r*0.6, Y - r*0.95, X + r*0.30, Y - r*0.80);
+    ctx.closePath(); ctx.fill();
+  } else if (e.shape === 'ear') {
+    ctx.beginPath(); ctx.arc(X, Y, r, 0, 7); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(X - r*0.55, Y - r*0.55);
+    ctx.lineTo(X - r*1.35, Y - r*1.25);
+    ctx.lineTo(X - r*0.20, Y - r*0.90);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(X + r*0.55, Y - r*0.55);
+    ctx.lineTo(X + r*1.35, Y - r*1.25);
+    ctx.lineTo(X + r*0.20, Y - r*0.90);
+    ctx.closePath(); ctx.fill();
+  } else {
+    ctx.beginPath(); ctx.arc(X, Y, r, 0, 7); ctx.fill();
+  }
+
+  ctx.globalAlpha = 1;
+
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  if (flash > 0) {
+    ctx.globalAlpha = flash * 0.8;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(X, Y, r*1.05, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  const eyeY = Y - r*0.12;
+  const eyeSpacing = r*0.34;
+  const eyeR = Math.max(1.4, r*0.16);
+  ctx.fillStyle = e.boss ? '#ffe066' : '#ffdd88';
+  ctx.shadowColor = e.boss ? '#ff4422' : '#ff8844';
+  ctx.shadowBlur = e.boss ? 12 : 6;
+  ctx.beginPath(); ctx.arc(X - eyeSpacing, eyeY, eyeR, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(X + eyeSpacing, eyeY, eyeR, 0, 7); ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // BOSS 血条
+  if (e.boss && e.hp > 0) {
+    const bw = TS * 2.6;
+    const bx = cx - bw/2;
+    const by = cy - r*2.4;
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(bx - 1, by - 1, bw + 2, 5);
+    const pct = clamp(e.hp/e.maxhp, 0, 1);
+    const hg = ctx.createLinearGradient(bx, 0, bx+bw, 0);
+    hg.addColorStop(0, '#ff2233');
+    hg.addColorStop(1, '#ff7755');
+    ctx.fillStyle = hg;
+    ctx.fillRect(bx, by, bw * pct, 3);
+  }
+
+  ctx.restore();
+}
+
+function drawPlayerEntity(t) {
+  const cx = player.px + TS/2;
+  const cy = player.py + TS/2 + Math.sin(t*0.004) * 1.2;
+  const r = TS * 0.36;
+  const col = player.color;
+
+  let ox = 0, oy = 0;
+  if (player.attackAnim > 0) {
+    const a = player.attackAnim;
+    ox = Math.sin(a*Math.PI) * 5;
+    oy = -Math.sin(a*Math.PI) * 2;
+  }
+
+  ctx.save();
+
+  const g = ctx.createRadialGradient(cx, cy, r*0.2, cx, cy, r*3.2);
+  g.addColorStop(0, rgba(col, 0.35));
+  g.addColorStop(1, rgba(col, 0));
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(cx, cy, r*3.2, 0, 7); ctx.fill();
+
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + r*1.1, r*0.95, r*0.36, 0, 0, 7);
+  ctx.fill();
+
+  const X = cx + ox, Y = cy + oy;
+
+  const cg = ctx.createLinearGradient(X, Y - r*1.6, X, Y + r*1.2);
+  cg.addColorStop(0, lighten(col, 0.4));
+  cg.addColorStop(0.5, col);
+  cg.addColorStop(1, darken(col, 0.45));
+  ctx.fillStyle = cg;
+  ctx.beginPath();
+  ctx.moveTo(X - r*1.0, Y + r*1.05);
+  ctx.quadraticCurveTo(X - r*0.95, Y - r*0.6, X, Y - r*1.15);
+  ctx.quadraticCurveTo(X + r*0.95, Y - r*0.6, X + r*1.0, Y + r*1.05);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(10,25,45,0.6)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  ctx.fillStyle = '#e8f4ff';
+  ctx.beginPath();
+  ctx.arc(X, Y - r*0.55, r*0.56, 0, 7);
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(20,40,70,0.85)';
+  ctx.beginPath();
+  ctx.arc(X, Y - r*0.42, r*0.42, 0, Math.PI);
+  ctx.fill();
+
+  ctx.fillStyle = '#a8f0ff';
+  ctx.shadowColor = col;
+  ctx.shadowBlur = 8;
+  ctx.beginPath(); ctx.arc(X - r*0.19, Y - r*0.40, 1.7, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(X + r*0.19, Y - r*0.40, 1.7, 0, 7); ctx.fill();
+  ctx.shadowBlur = 0;
+
+  const pulse = 0.5 + 0.5*Math.sin(t*0.003);
+  ctx.strokeStyle = rgba(col, 0.28 + 0.22*pulse);
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + r*1.05, r*1.15, r*0.42, 0, 0, 7);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   渲染主循环
+   ═══════════════════════════════════════════════════════════ */
+function render(t) {
+  ctx.save();
+  ctx.fillStyle = '#04050a';
+  ctx.fillRect(0, 0, VW, VH);
+
+  if (shake > 0.4) {
+    ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake);
+  }
+
+  if (terrainDirty) { buildTerrain(); terrainDirty = false; }
+  ctx.drawImage(terrainCv, 0, 0, VW, VH);
+
+  if (stairs) drawStairs(t);
+  for (const it of items) drawItem(it, t);
+  for (const m of monsters) {
+    if (m.hp <= 0) continue;
+    if (!visible[m.y*MAP_W+m.x]) continue;
+    drawCreature(m, t, false);
+  }
+  if (player && gameState !== 'dead') drawPlayerEntity(t);
+
+  // 冲击波
+  for (const s of shockwaves) {
+    ctx.globalAlpha = s.life * 0.8;
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 2 + s.life * 3;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, 7);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // 粒子
+  for (const p of particles) {
+    ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, 7);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // 浮动文字
+  ctx.textAlign = 'center';
+  for (const f of floaters) {
+    ctx.globalAlpha = clamp(f.life, 0, 1);
+    ctx.font = f.big ? 'bold 17px Consolas, monospace' : 'bold 13px Consolas, monospace';
+    ctx.fillStyle = '#000';
+    ctx.fillText(f.text, f.x+1, f.y+1);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, f.x, f.y);
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+
+  // 暗角
+  if (player) {
+    const cx = player.px + TS/2, cy = player.py + TS/2;
+    const vg = ctx.createRadialGradient(cx, cy, TS*3.5, cx, cy, TS*13.5);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(0.55, 'rgba(0,0,0,0.30)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.80)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, 0, VW, VH);
+  }
+
+  if (hitFlash > 0) {
+    ctx.fillStyle = `rgba(255,30,50,${hitFlash*0.28})`;
+    ctx.fillRect(0, 0, VW, VH);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   更新
+   ═══════════════════════════════════════════════════════════ */
+function update(dt) {
+  const k = 1 - Math.exp(-dt * 0.024);
+
+  if (player) {
+    player.px += (player.x*TS - player.px) * k;
+    player.py += (player.y*TS - player.py) * k;
+    if (player.attackAnim > 0) player.attackAnim = Math.max(0, player.attackAnim - dt*0.006);
+    if (player.flash > 0) player.flash = Math.max(0, player.flash - dt*0.004);
+  }
+  for (const m of monsters) {
+    m.px += (m.x*TS - m.px) * k;
+    m.py += (m.y*TS - m.py) * k;
+    if (m.attackAnim > 0) m.attackAnim = Math.max(0, m.attackAnim - dt*0.006);
+    if (m.flash > 0) m.flash = Math.max(0, m.flash - dt*0.005);
+  }
+
+  for (let i = particles.length-1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vy += 0.14;
+    p.vx *= 0.97;
+    p.life -= dt*0.0024;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  for (let i = floaters.length-1; i >= 0; i--) {
+    const f = floaters[i];
+    f.y -= dt*0.035;
+    f.life -= dt*0.0015;
+    if (f.life <= 0) floaters.splice(i, 1);
+  }
+  for (let i = shockwaves.length-1; i >= 0; i--) {
+    const s = shockwaves[i];
+    s.r += dt * 0.18 * (s.maxR/TS);
+    s.life -= dt*0.0028;
+    if (s.life <= 0 || s.r > s.maxR) shockwaves.splice(i, 1);
+  }
+
+  if (shake > 0) shake = Math.max(0, shake - dt*0.035);
+  if (hitFlash > 0) hitFlash = Math.max(0, hitFlash - dt*0.0022);
+}
+
+function loop(t) {
+  const dt = Math.min(60, t - lastT || 16);
+  lastT = t;
+  update(dt);
+  render(t);
+  if (logDirty) renderLog();
+  requestAnimationFrame(loop);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   输入
+   ═══════════════════════════════════════════════════════════ */
+window.addEventListener('keydown', e => {
+  const k = e.key;
+  const lower = k.toLowerCase();
+
+  if (gameState === 'title') {
+    e.preventDefault();
+    showHub();
+    return;
+  }
+  if (gameState === 'dead' || gameState === 'win') {
+    if (lower === 'r') { e.preventDefault(); showHub(); }
+    return;
+  }
+  if (gameState !== 'play') return;
+
+  if (lower === 'arrowup' || lower === 'w' || lower === 'k') { e.preventDefault(); tryMove(0,-1); return; }
+  if (lower === 'arrowdown' || lower === 's' || lower === 'j') { e.preventDefault(); tryMove(0,1); return; }
+  if (lower === 'arrowleft' || lower === 'a' || lower === 'h') { e.preventDefault(); tryMove(-1,0); return; }
+  if (lower === 'arrowright' || lower === 'd' || lower === 'l') { e.preventDefault(); tryMove(1,0); return; }
+
+  if (lower === ' ' || lower === '.') { e.preventDefault(); wait(); return; }
+  if (lower === 'enter' || lower === '>') { e.preventDefault(); descend(); return; }
+  if (lower === 'q') { e.preventDefault(); useSkill(); return; }
+
+  if (lower >= '1' && lower <= '9') {
+    e.preventDefault();
+    const idx = parseInt(lower, 10) - 1;
+    if (idx < ITEM_ORDER.length) useItem(idx);
+    return;
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   自适应缩放
+   ═══════════════════════════════════════════════════════════ */
+const frame = document.getElementById('frame');
+function resize() {
+  const totalW = 1420 + 40;
+  const totalH = 720 + 40;
+  const s = Math.min(window.innerWidth / totalW, window.innerHeight / totalH, 1);
+  frame.style.transform = `scale(${s})`;
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ═══════════════════════════════════════════════════════════
+   启动
+   ═══════════════════════════════════════════════════════════ */
+// 初始化一个空的初始状态，让渲染不出错
+(function initEmpty() {
+  map = new Uint8Array(MAP_W*MAP_H);
+  explored = new Uint8Array(MAP_W*MAP_H);
+  visible = new Uint8Array(MAP_W*MAP_H);
+  rooms = []; monsters = []; items = [];
+  stairs = { x: 0, y: 0 };
+  player = null;
+  depth = 1; turnCount = 0; runSouls = 0;
+  messages = [];
+})();
+
+showTitle();
+requestAnimationFrame(loop);
+
+// 暴露给内联 onclick
+window.buyUpgrade = buyUpgrade;
+window.showClassSelect = showClassSelect;
+window.showHub = showHub;
+window.startRun = startRun;
+window.unlockClass = unlockClass;
+
+</script>
+</body>
+</html>
